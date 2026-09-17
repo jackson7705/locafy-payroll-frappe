@@ -27,7 +27,7 @@ done
 if [ ! -f "sites/$SITE_NAME/site_config.json" ]; then
   echo "Creating site $SITE_NAME"
   bench new-site "$SITE_NAME" --db-root-username root --db-root-password "$DB_ROOT_PASSWORD" \
-    --admin-password "$ADMIN_PASSWORD" --install-app erpnext --install-app hrms --set-default
+    --mariadb-user-host-login-scope=% --admin-password "$ADMIN_PASSWORD" --install-app erpnext --install-app hrms --set-default
   bench --site "$SITE_NAME" set-config host_name "https://$SITE_NAME"
   if [ -n "$WIZARD_EMAIL" ]; then
     echo "Running setup wizard"
@@ -39,6 +39,17 @@ if [ ! -f "sites/$SITE_NAME/site_config.json" ]; then
       \"module_accounting\": 1, \"module_leave_attendance\": 1, \"module_payroll\": 1, \"module_recruitment\": 1, \"module_performance\": 1}}"
   fi
 else
+  # Containers get a new private IP on every deploy. Make sure the site DB user may connect from any host.
+  python3 - "$SITE_NAME" "$DB_HOST" "$DB_PORT" "$DB_ROOT_PASSWORD" <<'PY'
+import json, sys, MySQLdb
+site, host, port, rootpw = sys.argv[1:5]
+cfg = json.load(open(f"sites/{site}/site_config.json")); db, pw = cfg["db_name"], cfg["db_password"]
+conn = MySQLdb.connect(host=host, port=int(port), user="root", passwd=rootpw); cur = conn.cursor()
+cur.execute(f"CREATE USER IF NOT EXISTS '{db}'@'%%' IDENTIFIED BY %s", (pw,))
+cur.execute(f"ALTER USER '{db}'@'%%' IDENTIFIED BY %s", (pw,))
+cur.execute(f"GRANT ALL PRIVILEGES ON `{db}`.* TO '{db}'@'%%'")
+cur.execute("FLUSH PRIVILEGES"); conn.commit(); print("DB user host scope ensured for", db)
+PY
   echo "Site exists; running migrate"
   bench --site "$SITE_NAME" migrate
 fi
