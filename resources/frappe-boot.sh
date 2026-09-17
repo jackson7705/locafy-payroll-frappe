@@ -47,7 +47,7 @@ cfg = json.load(open(f"sites/{site}/site_config.json")); db, pw = cfg["db_name"]
 conn = MySQLdb.connect(host=host, port=int(port), user="root", passwd=rootpw); cur = conn.cursor()
 cur.execute(f"CREATE USER IF NOT EXISTS '{db}'@'%%' IDENTIFIED BY %s", (pw,))
 cur.execute(f"ALTER USER '{db}'@'%%' IDENTIFIED BY %s", (pw,))
-cur.execute(f"GRANT ALL PRIVILEGES ON `{db}`.* TO '{db}'@'%%'")
+cur.execute(f"GRANT ALL PRIVILEGES ON `{db}`.* TO '{db}'@'%'")
 cur.execute("FLUSH PRIVILEGES"); conn.commit(); print("DB user host scope ensured for", db)
 PY
   echo "Site exists; running migrate"
