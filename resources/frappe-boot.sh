@@ -7,6 +7,9 @@ export PATH=$BENCH/env/bin:$PATH
 DB_PORT=${DB_PORT:-3306}; REDIS_PORT=${REDIS_PORT:-6379}
 
 /usr/local/bin/link-assets.sh true
+# The volume mounted at sites/ hides the image copy of apps.txt; rebuild it from apps/.
+ls apps | grep -vE "^\." > sites/apps.txt
+mkdir -p logs
 cat > sites/common_site_config.json <<JSON
 {"db_host": "$DB_HOST", "db_port": $DB_PORT,
  "redis_cache": "redis://$REDIS_HOST:$REDIS_PORT/0", "redis_queue": "redis://$REDIS_HOST:$REDIS_PORT/1", "redis_socketio": "redis://$REDIS_HOST:$REDIS_PORT/1",
@@ -42,7 +45,6 @@ fi
 echo "$SITE_NAME" > sites/currentsite.txt
 
 export BACKEND=127.0.0.1:8000 SOCKETIO=127.0.0.1:9000 FRAPPE_SITE_NAME_HEADER="$SITE_NAME" UPSTREAM_REAL_IP_HEADER=CF-Connecting-IP
-sed -i 's/listen 8080/listen 8080/' /templates/nginx/frappe.conf.template
 /usr/local/bin/nginx-entrypoint.sh &
 /usr/local/bin/gunicorn.sh &
 node apps/frappe/socketio.js &
