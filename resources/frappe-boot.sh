@@ -13,7 +13,7 @@ mkdir -p logs
 cat > sites/common_site_config.json <<JSON
 {"db_host": "$DB_HOST", "db_port": $DB_PORT,
  "redis_cache": "redis://$REDIS_HOST:$REDIS_PORT/0", "redis_queue": "redis://$REDIS_HOST:$REDIS_PORT/1", "redis_socketio": "redis://$REDIS_HOST:$REDIS_PORT/1",
- "socketio_port": 9000, "webserver_port": 8000, "default_site": "$SITE_NAME"}
+ "socketio_port": 9000, "webserver_port": 8000, "default_site": "$SITE_NAME", "server_script_enabled": true}
 JSON
 
 echo "Waiting for MariaDB at $DB_HOST:$DB_PORT ..."
@@ -41,6 +41,11 @@ if [ ! -f "sites/$SITE_NAME/site_config.json" ]; then
 else
   echo "Site exists; running migrate"
   bench --site "$SITE_NAME" migrate
+fi
+# Pin the encryption key before any long-running process starts; otherwise each process
+# lazily generates its own and encrypted values (API secrets, email passwords) break.
+if ! grep -q '"encryption_key"' "sites/$SITE_NAME/site_config.json"; then
+  bench --site "$SITE_NAME" set-config encryption_key "$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
 fi
 echo "$SITE_NAME" > sites/currentsite.txt
 
